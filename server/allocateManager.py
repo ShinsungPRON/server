@@ -3,13 +3,41 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |   pyuic5   |  2023/10/12   | Auto-generated (from ui/allocatorUI.ui)                         |
 # +-------------+--------------+-----------------------------------------------------------------+
-# |  Andrew A  |  2023/10/12   | refactored                                                      |
+# |  Andrew A  |  2023/10/12   | refactored, implemented basic features                          |
 # +-------------+--------------+-----------------------------------------------------------------+
 
-from PyQt5 import QtCore
 from PyQt5.QtWidgets import *
 import sys
 
+testdata = [
+    {
+        "ID": 0,
+        "ClientName": "CHROMEBOOK_01",
+        "data": {
+            "CustomerName": "안동기",
+            "ColorCode": "FFFFFF"
+        },
+        "status": "waiting"
+    },
+    {
+        "ID": 1,
+        "ClientName": "CHROMEBOOK_03",
+        "data": {
+            "CustomerName": "박성현",
+            "ColorCode": "EDEDED"
+        },
+        "status": "inprogress"
+    },
+    {
+        "ID": 3,
+        "ClientName": "CHROMEBOOK_02",
+        "data": {
+            "CustomerName": "윤지운",
+            "ColorCode": "888888"
+        },
+        "status": "waiting"
+    }
+]
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -33,6 +61,7 @@ class MainWindow(QMainWindow):
 
         self.searchButton = QPushButton(self.centralwidget)
         self.searchButton.setText("검색")
+        self.searchButton.clicked.connect(lambda: self.display_data(testdata))
         self.topHorizontal.addWidget(self.searchButton)
 
         self.modifyButton = QPushButton(self.centralwidget)
@@ -44,16 +73,18 @@ class MainWindow(QMainWindow):
         self.topHorizontal.addWidget(self.deleteButton)
 
         self.baseVertical.addLayout(self.topHorizontal)
-        self.tableView = QTableView(self.centralwidget)
-        self.baseVertical.addWidget(self.tableView)
-
+        self.tableWidget = QTableWidget(self.centralwidget)
+        self.tableWidget.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        self.baseVertical.addWidget(self.tableWidget)
 
         self.alloc1Button = QPushButton(self.centralwidget)
         self.alloc1Button.setText("1에 할당")
+        self.alloc1Button.clicked.connect(lambda: self.allocate(1))
         self.buttomHorizontal.addWidget(self.alloc1Button)
 
         self.alloc2Button = QPushButton(self.centralwidget)
         self.alloc2Button.setText("2에 할당")
+        self.alloc2Button.clicked.connect(lambda: self.allocate(2))
         self.buttomHorizontal.addWidget(self.alloc2Button)
 
         self.tasklistButton = QPushButton(self.centralwidget)
@@ -64,8 +95,39 @@ class MainWindow(QMainWindow):
         self.verticalLayout_2.addLayout(self.baseVertical)
         self.setCentralWidget(self.centralwidget)
 
-        QtCore.QMetaObject.connectSlotsByName(self)
         self.show()
+
+    def display_data(self, data: list):
+        column_headers = ("크롬북 ID", "이름", "컬러코드", "상태")
+        self.tableWidget.setRowCount(len(data))
+        self.tableWidget.setColumnCount(len(column_headers))
+
+        for index, datum in enumerate(data):
+            self.tableWidget.setItem(index, 0, QTableWidgetItem(datum["ClientName"]))
+            self.tableWidget.setItem(index, 1, QTableWidgetItem(datum["data"]["CustomerName"]))
+            self.tableWidget.setItem(index, 2, QTableWidgetItem(str(datum["data"]["ColorCode"])))
+            self.tableWidget.setItem(index, 3, QTableWidgetItem(datum["status"]))
+
+        self.tableWidget.setHorizontalHeaderLabels(column_headers)
+        self.tableWidget.resizeColumnsToContents()
+
+    def allocate(self, to: int):
+        if self.tableWidget.currentRow() == -1:
+            return
+
+        self.tableWidget.selectRow(self.tableWidget.currentRow())
+        data = self.tableWidget.selectedItems()
+
+        # TODO: 할당 구현
+
+    def delete(self):
+        if self.tableWidget.currentRow() == -1:
+            return
+
+        self.tableWidget.selectRow(self.tableWidget.currentRow())
+        data = self.tableWidget.selectedItems()
+
+        # TODO: DB에서 지우기 기능 구현
 
 
 app = QApplication(sys.argv)
