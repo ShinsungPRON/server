@@ -7,6 +7,7 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 
 from PyQt5.QtWidgets import *
+from PyQt5.QtCore import QThread, pyqtSlot, pyqtSignal
 import configparser
 import socket
 import json
@@ -41,6 +42,22 @@ testdata = [
         "status": "waiting"
     }
 ]
+
+
+class IndividualSignal(QThread):
+    def __init__(self):
+        super().__init__()
+
+    def run(self):
+        pass
+
+
+class SignalConnectionWorker(QThread):
+    def __init__(self):
+        super().__init__()
+
+    def run(self):
+        pass
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -83,13 +100,13 @@ class MainWindow(QMainWindow):
         self.searchButton.clicked.connect(lambda: self.display_data(testdata))
         self.topHorizontal.addWidget(self.searchButton)
 
-        self.modifyButton = QPushButton(self.centralwidget)
-        self.modifyButton.setText("수정")
-        self.topHorizontal.addWidget(self.modifyButton)
-
         self.deleteButton = QPushButton(self.centralwidget)
         self.deleteButton.setText("삭제")
         self.topHorizontal.addWidget(self.deleteButton)
+
+        self.modifyButton = QPushButton(self.centralwidget)
+        self.modifyButton.setText("커밋")
+        self.topHorizontal.addWidget(self.modifyButton)
 
         self.baseVertical.addLayout(self.topHorizontal)
         self.tableWidget = QTableWidget(self.centralwidget)
@@ -137,7 +154,10 @@ class MainWindow(QMainWindow):
         self.tableWidget.selectRow(self.tableWidget.currentRow())
         data = self.tableWidget.selectedItems()
 
-        # TODO: 할당 구현
+        if to == 1:
+            self.combinator_1.send(data[2].text().encode())
+        elif to == 2:
+            self.combinator_2.send(data[2].text().encode())
 
     def delete(self):
         if self.tableWidget.currentRow() == -1:
