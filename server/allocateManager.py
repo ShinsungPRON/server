@@ -7,6 +7,9 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 
 from PyQt5.QtWidgets import *
+import configparser
+import socket
+import json
 import sys
 
 testdata = [
@@ -42,7 +45,23 @@ testdata = [
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.conf = configparser.ConfigParser()
+        self.conf.read("./allocatemgr.conf")
+
+        self.combinator_1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.combinator_2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        self.establish_connection()
         self.setupUi()
+
+    def establish_connection(self):
+        self.combinator_1.connect((self.conf['DEFAULT']['ColorCombinator1Addr'],
+                                   int(self.conf['DEFAULT']['ColorCombinator1Port'])))
+        print(f"Connection established with 1: {self.conf['DEFAULT']['ColorCombinator1Addr']}, {int(self.conf['DEFAULT']['ColorCombinator1Port'])}")
+
+        self.combinator_2.connect((self.conf['DEFAULT']['ColorCombinator2Addr'],
+                                   int(self.conf['DEFAULT']['ColorCombinator2Port'])))
+        print(f"Connection established with 2: {self.conf['DEFAULT']['ColorCombinator2Addr']}, {int(self.conf['DEFAULT']['ColorCombinator2Port'])}")
 
     def setupUi(self):
         self.setObjectName("MainWindow")
