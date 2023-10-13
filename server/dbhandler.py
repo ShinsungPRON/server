@@ -6,8 +6,6 @@ config.read("./conf.conf")
 
 
 class BaseDBError(Exception):
-    """Base class for ConfigParser exceptions."""
-
     def __init__(self, msg=''):
         self.message = msg
         Exception.__init__(self, msg)
@@ -29,6 +27,7 @@ class IllegalStatus(BaseDBError):
 class DocumentNotFound(BaseDBError):
     pass
 
+
 class DBHandler:
     def __init__(self):
         self.client = pymongo.MongoClient(f"mongodb://{config['DB']['ServerAddr']}:{config['DB']['ServerPort']}")
@@ -46,7 +45,7 @@ class DBHandler:
         return self.collection.find_one({"id": id})
 
     def update_status(self, id, new_status):
-        if not new_status in ["waiting", "done", "inprogress"]:
+        if new_status not in ["waiting", "done", "inprogress"]:
             raise IllegalStatus(str(new_status))
 
         self.collection.update_one({"id": id}, {"$set": {"status": new_status}})
