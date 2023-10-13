@@ -1,5 +1,6 @@
 import configparser
 import pymongo
+from bson.objectid import ObjectId
 
 config = configparser.ConfigParser()
 config.read("./conf.conf")
@@ -35,19 +36,17 @@ class DBHandler:
         self.collection = self.db[config['DB']['collection']]
 
     def insert_data(self, data):
-        existing = self.get_data_by_id(data.get(id))
-        if existing:
-            raise IDOverlapping(f"{data}: id 중복됨")
-
+        # existing = self.get_data_by_id(data.get(id))
+        # if existing:
+        #     raise IDOverlapping(f"{data}: id 중복됨")
         return self.collection.insert_one(data)
 
     def get_data_by_id(self, id):
-        return self.collection.find_one({"id": id})
+        return self.collection.find_one({"_id": id})
 
     def fetch_all(self):
         return self.collection.count_documents({}), self.collection.find({})
 
-    def update_status(self, id, new_status):
     def get_datas_by_name(self, client_name):
         return self.collection.find({"data.CustomerName": client_name})
 
@@ -55,13 +54,13 @@ class DBHandler:
         if new_status not in ["waiting", "done", "inprogress"]:
             raise IllegalStatus(str(new_status))
 
-        self.collection.update_one({"id": id}, {"$set": {"status": new_status}})
+        self.collection.update_one({"_id": id}, {"$set": {"status": new_status}})
 
     def update_color_by_id(self, id, new_color):
-        self.collection.update_one({"id": id}, {"$set": {"data.ColorCode": new_color}})
+        self.collection.update_one({"_id": id}, {"$set": {"data.ColorCode": new_color}})
 
-    def delete_data(self, id):
-        self.collection.delete_one({"id": id})
+    def delete_data_by_id(self, id):
+        self.collection.delete_one({"_id": id})
 
     def close(self):
         self.client.close()
