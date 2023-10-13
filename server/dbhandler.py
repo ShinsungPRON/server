@@ -44,6 +44,9 @@ class DBHandler:
     def get_data(self, id):
         return self.collection.find_one({"id": id})
 
+    def fetch_all(self):
+        return self.collection.count_documents({}), self.collection.find({})
+
     def update_status(self, id, new_status):
         if new_status not in ["waiting", "done", "inprogress"]:
             raise IllegalStatus(str(new_status))
@@ -51,6 +54,7 @@ class DBHandler:
         self.collection.update_one({"id": id}, {"$set": {"status": new_status}})
 
     def update_color(self, id, new_color):
+
         self.collection.update_one({"id": id}, {"$set": {"data.ColorCode": new_color}})
 
     def delete_data(self, id):
@@ -58,3 +62,6 @@ class DBHandler:
 
     def close(self):
         self.client.close()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()

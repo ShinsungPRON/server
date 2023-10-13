@@ -10,38 +10,41 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QThread, pyqtSlot, pyqtSignal
 import configparser
 import socket
+import dbhandler
 import json
 import sys
 
-testdata = [
-    {
-        "ID": 0,
-        "ClientName": "CHROMEBOOK_01",
-        "data": {
-            "CustomerName": "안동기",
-            "ColorCode": "FFFFFF"
-        },
-        "status": "waiting"
-    },
-    {
-        "ID": 1,
-        "ClientName": "CHROMEBOOK_03",
-        "data": {
-            "CustomerName": "박성현",
-            "ColorCode": "EDEDED"
-        },
-        "status": "inprogress"
-    },
-    {
-        "ID": 3,
-        "ClientName": "CHROMEBOOK_02",
-        "data": {
-            "CustomerName": "윤지운",
-            "ColorCode": "888888"
-        },
-        "status": "waiting"
-    }
-]
+# testdata = [
+#     {
+#         "ID": 0,
+#         "ClientName": "CHROMEBOOK_01",
+#         "data": {
+#             "CustomerName": "안동기",
+#             "ColorCode": "FFFFFF"
+#         },
+#         "status": "waiting"
+#     },
+#     {
+#         "ID": 1,
+#         "ClientName": "CHROMEBOOK_03",
+#         "data": {
+#             "CustomerName": "박성현",
+#             "ColorCode": "EDEDED"
+#         },
+#         "status": "inprogress"
+#     },
+#     {
+#         "ID": 3,
+#         "ClientName": "CHROMEBOOK_02",
+#         "data": {
+#             "CustomerName": "윤지운",
+#             "ColorCode": "888888"
+#         },
+#         "status": "waiting"
+#     }
+# ]
+
+cursor = dbhandler.DBHandler()
 
 
 class IndividualSignal(QThread):
@@ -59,6 +62,7 @@ class SignalConnectionWorker(QThread):
     def run(self):
         pass
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -68,7 +72,7 @@ class MainWindow(QMainWindow):
         self.combinator_1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.combinator_2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        self.establish_connection()
+        # self.establish_connection()
         self.setupUi()
 
     def establish_connection(self):
@@ -97,7 +101,7 @@ class MainWindow(QMainWindow):
 
         self.searchButton = QPushButton(self.centralwidget)
         self.searchButton.setText("검색")
-        self.searchButton.clicked.connect(lambda: self.display_data(testdata))
+        self.searchButton.clicked.connect(self.display_data)
         self.topHorizontal.addWidget(self.searchButton)
 
         self.deleteButton = QPushButton(self.centralwidget)
@@ -133,16 +137,20 @@ class MainWindow(QMainWindow):
 
         self.show()
 
-    def display_data(self, data: list):
-        column_headers = ("크롬북 ID", "이름", "컬러코드", "상태")
-        self.tableWidget.setRowCount(len(data))
+    def display_data(self):
+        column_headers = ("데이터 ID", "크롬북 ID", "이름", "컬러코드", "상태")
+
+        count, data = cursor.fetch_all()
+
+        self.tableWidget.setRowCount(count)
         self.tableWidget.setColumnCount(len(column_headers))
 
         for index, datum in enumerate(data):
-            self.tableWidget.setItem(index, 0, QTableWidgetItem(datum["ClientName"]))
-            self.tableWidget.setItem(index, 1, QTableWidgetItem(datum["data"]["CustomerName"]))
-            self.tableWidget.setItem(index, 2, QTableWidgetItem(str(datum["data"]["ColorCode"])))
-            self.tableWidget.setItem(index, 3, QTableWidgetItem(datum["status"]))
+            self.tableWidget.setItem(index, 0, QTableWidgetItem(str(datum['_id'])))
+            self.tableWidget.setItem(index, 1, QTableWidgetItem(datum["ClientName"]))
+            self.tableWidget.setItem(index, 2, QTableWidgetItem(datum["data"]["CustomerName"]))
+            self.tableWidget.setItem(index, 3, QTableWidgetItem(str(datum["data"]["ColorCode"])))
+            self.tableWidget.setItem(index, 4, QTableWidgetItem(datum["status"]))
 
         self.tableWidget.setHorizontalHeaderLabels(column_headers)
         self.tableWidget.resizeColumnsToContents()
@@ -155,9 +163,11 @@ class MainWindow(QMainWindow):
         data = self.tableWidget.selectedItems()
 
         if to == 1:
-            self.combinator_1.send(data[2].text().encode())
+            print("sending {} to 1".format(data[2]))
+            # self.combinator_1.send(data[2].text().encode())
         elif to == 2:
-            self.combinator_2.send(data[2].text().encode())
+            print("sending {} to 2".format(data[2]))
+            # self.combinator_2.send(data[2].text().encode())
 
     def delete(self):
         if self.tableWidget.currentRow() == -1:
