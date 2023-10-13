@@ -35,26 +35,29 @@ class DBHandler:
         self.collection = self.db[config['DB']['collection']]
 
     def insert_data(self, data):
-        existing = self.find_data(data.get("id"))
+        existing = self.get_data_by_id(data.get(id))
         if existing:
             raise IDOverlapping(f"{data}: id 중복됨")
 
         return self.collection.insert_one(data)
 
-    def get_data(self, id):
+    def get_data_by_id(self, id):
         return self.collection.find_one({"id": id})
 
     def fetch_all(self):
         return self.collection.count_documents({}), self.collection.find({})
 
     def update_status(self, id, new_status):
+    def get_datas_by_name(self, client_name):
+        return self.collection.find({"data.CustomerName": client_name})
+
+    def update_status_by_id(self, id, new_status):
         if new_status not in ["waiting", "done", "inprogress"]:
             raise IllegalStatus(str(new_status))
 
         self.collection.update_one({"id": id}, {"$set": {"status": new_status}})
 
-    def update_color(self, id, new_color):
-
+    def update_color_by_id(self, id, new_color):
         self.collection.update_one({"id": id}, {"$set": {"data.ColorCode": new_color}})
 
     def delete_data(self, id):
