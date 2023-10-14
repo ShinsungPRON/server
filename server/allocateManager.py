@@ -23,21 +23,48 @@ conf.read("./allocatemgr.conf")
 
 
 class IndividualSignal(QThread):
-    def __init__(self):
+    update = pyqtSignal(str, str, int)
+
+    def __init__(self, soc):
         super().__init__()
+        self.soc = soc
 
     def run(self):
-        pass
+        while True:
+            message = self.soc.recv(1024).decode()
+            data = json.loads(message)
+
+            self.update.emit(data["_id"], data["status"], data['device'])
 
 
 class SignalConnectionWorker(QThread):
+    update_status_signal = pyqtSignal(str, str)
+
     def __init__(self):
         super().__init__()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((conf['DEFAULT']['SignalAddr'], int(conf['DEFAULT']['SignalPort'])))
+        self.pool = []
+        self.closed = False
 
     def run(self):
-        pass
+        self.socket.listen(20)
+
+        while not self.closed:
+            soc, addr = self.socket.accept()
+
+            print("Connected:", addr)
+
+            worker = IndividualSignal(soc, addr)
+            self.pool.append(worker)
+            worker.update.connect(self.convey_message)
+            worker.start()
+            self.msleep(50)
+
+    @pyqtSlot(str, str)
+    def convey_message(self, _id, status):
+        self.update_status_signal.emit(_id, status)
+
 
 
 class MainWindow(QMainWindow):
@@ -55,9 +82,15 @@ class MainWindow(QMainWindow):
                                    int(conf['DEFAULT']['ColorCombinator1Port'])))
         print(f"Connection established with 1: {conf['DEFAULT']['ColorCombinator1Addr']}, {int(conf['DEFAULT']['ColorCombinator1Port'])}")
 
-        self.combinator_2.connect((conf['DEFAULT']['ColorCombinator2Addr'],
-                                   int(conf['DEFAULT']['ColorCombinator2Port'])))
-        print(f"Connection established with 2: {conf['DEFAULT']['ColorCombinator2Addr']}, {int(conf['DEFAULT']['ColorCombinator2Port'])}")
+        self.combinator_2 = None
+
+        # self.combinator_2.connect((conf['DEFAULT']['ColorCombinator2Addr'],
+        #                            int(conf['DEFAULT']['ColorCombinator2Port'])))
+        # print(f"Connection established with 2: {conf['DEFAULT']['ColorCombinator2Addr']}, {int(conf['DEFAULT']['ColorCombinator2Port'])}")
+
+        self.worker1 = IndividualSignal(self.combinator_1)
+        self.worker1.update.connect(self.update_status)
+        self.worker1.start()
 
     def setupUi(self):
         self.setObjectName("MainWindow")
@@ -116,6 +149,8 @@ class MainWindow(QMainWindow):
         self.verticalLayout_2.addLayout(self.baseVertical)
         self.setCentralWidget(self.centralwidget)
 
+        self.establish_connection()
+
         self.display_data()
 
         self.show()
@@ -160,7 +195,7 @@ class MainWindow(QMainWindow):
                 return
             print("sending {} to 1".format(data[3].text()))
             cursor.update_status_by_id(ObjectId(data[0].text()), "inprogress1")
-            # self.combinator_1.send(data_to_send)
+            self.combinator_1.send(data_to_send)
 
         elif to == 2:
             if data[4].text().startswith("inprogress"):
@@ -198,6 +233,17 @@ class MainWindow(QMainWindow):
                                 QMessageBox.Ok, QMessageBox.Ok)
 
         self.display_data()
+
+
+    @pyqtSlot(str, str, int)
+    def update_status(self, _id, status, device):
+        print("_id", status)
+        cursor.update_status_by_id(ObjectId(_id), status)
+        self.display_data()
+
+        QMessageBox.information(self, "성공",
+                                f"색조합기 {device}의 작업 {_id}가 완료되었습니다.",
+                                QMessageBox.Yes, QMessageBox.Yes)
 
 
 app = QApplication(sys.argv)
