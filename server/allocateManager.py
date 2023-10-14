@@ -5,6 +5,8 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |  Andrew A  |  2023/10/12   | refactored, implemented basic features                          |
 # +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A  |  2023/10/14   | Wrote allocate(), delete()                                      |
+# +-------------+--------------+-----------------------------------------------------------------+
 
 from bson.objectid import ObjectId
 from PyQt5.QtCore import QThread, pyqtSlot, pyqtSignal
@@ -143,6 +145,13 @@ class MainWindow(QMainWindow):
         self.tableWidget.selectRow(self.tableWidget.currentRow())
         data = self.tableWidget.selectedItems()
 
+        data_to_send = json.dumps(
+            {
+                "_id": data[0].text(),
+                "code": data[2].text()
+            }
+        ).encode()
+
         if to == 1:
             if data[4].text().startswith("inprogress"):
                 QMessageBox.critical(self, "오류: 서버 관리 도구",
@@ -151,7 +160,7 @@ class MainWindow(QMainWindow):
                 return
             print("sending {} to 1".format(data[3].text()))
             cursor.update_status_by_id(ObjectId(data[0].text()), "inprogress1")
-            # self.combinator_1.send(data[2].text().encode())
+            # self.combinator_1.send(data_to_send)
 
         elif to == 2:
             if data[4].text().startswith("inprogress"):
@@ -161,7 +170,7 @@ class MainWindow(QMainWindow):
                 return
             print("sending {} to 2".format(data[3].text()))
             cursor.update_status_by_id(ObjectId(data[0].text()), "inprogress2")
-            # self.combinator_2.send(data[2].text().encode())
+            # self.combinator_2.send(data_to_send)
 
         QMessageBox.information(self, "성공",
                     f"작업 {data[0].text()}가 색조합기 {to}에 잘 할당되었습니다.\n색조합이 곧 시작됩니다.",
