@@ -51,7 +51,7 @@ class DBHandler:
         return self.collection.find({"data.CustomerName": client_name})
 
     def update_status_by_id(self, id, new_status):
-        if new_status not in ["waiting", "done", "inprogress"]:
+        if new_status not in ["waiting", "done", "inprogress1", "inprogress2"]:
             raise IllegalStatus(str(new_status))
 
         self.collection.update_one({"_id": id}, {"$set": {"status": new_status}})

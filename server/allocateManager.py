@@ -6,45 +6,18 @@
 # |  Andrew A  |  2023/10/12   | refactored, implemented basic features                          |
 # +-------------+--------------+-----------------------------------------------------------------+
 
-from PyQt5.QtWidgets import *
+from bson.objectid import ObjectId
 from PyQt5.QtCore import QThread, pyqtSlot, pyqtSignal
+from PyQt5.QtWidgets import *
 import configparser
 import socket
 import dbhandler
 import json
 import sys
 
-# testdata = [
-#     {
-#         "ID": 0,
-#         "ClientName": "CHROMEBOOK_01",
-#         "data": {
-#             "CustomerName": "안동기",
-#             "ColorCode": "FFFFFF"
-#         },
-#         "status": "waiting"
-#     },
-#     {
-#         "ID": 1,
-#         "ClientName": "CHROMEBOOK_03",
-#         "data": {
-#             "CustomerName": "박성현",
-#             "ColorCode": "EDEDED"
-#         },
-#         "status": "inprogress"
-#     },
-#     {
-#         "ID": 3,
-#         "ClientName": "CHROMEBOOK_02",
-#         "data": {
-#             "CustomerName": "윤지운",
-#             "ColorCode": "888888"
-#         },
-#         "status": "waiting"
-#     }
-# ]
-
 cursor = dbhandler.DBHandler()
+conf = configparser.ConfigParser()
+conf.read("./allocatemgr.conf")
 
 
 class IndividualSignal(QThread):
@@ -58,6 +31,8 @@ class IndividualSignal(QThread):
 class SignalConnectionWorker(QThread):
     def __init__(self):
         super().__init__()
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.bind((conf['DEFAULT']['SignalAddr'], int(conf['DEFAULT']['SignalPort'])))
 
     def run(self):
         pass
@@ -66,8 +41,6 @@ class SignalConnectionWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.conf = configparser.ConfigParser()
-        self.conf.read("./allocatemgr.conf")
 
         self.combinator_1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.combinator_2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -76,13 +49,13 @@ class MainWindow(QMainWindow):
         self.setupUi()
 
     def establish_connection(self):
-        self.combinator_1.connect((self.conf['DEFAULT']['ColorCombinator1Addr'],
-                                   int(self.conf['DEFAULT']['ColorCombinator1Port'])))
-        print(f"Connection established with 1: {self.conf['DEFAULT']['ColorCombinator1Addr']}, {int(self.conf['DEFAULT']['ColorCombinator1Port'])}")
+        self.combinator_1.connect((conf['DEFAULT']['ColorCombinator1Addr'],
+                                   int(conf['DEFAULT']['ColorCombinator1Port'])))
+        print(f"Connection established with 1: {conf['DEFAULT']['ColorCombinator1Addr']}, {int(conf['DEFAULT']['ColorCombinator1Port'])}")
 
-        self.combinator_2.connect((self.conf['DEFAULT']['ColorCombinator2Addr'],
-                                   int(self.conf['DEFAULT']['ColorCombinator2Port'])))
-        print(f"Connection established with 2: {self.conf['DEFAULT']['ColorCombinator2Addr']}, {int(self.conf['DEFAULT']['ColorCombinator2Port'])}")
+        self.combinator_2.connect((conf['DEFAULT']['ColorCombinator2Addr'],
+                                   int(conf['DEFAULT']['ColorCombinator2Port'])))
+        print(f"Connection established with 2: {conf['DEFAULT']['ColorCombinator2Addr']}, {int(conf['DEFAULT']['ColorCombinator2Port'])}")
 
     def setupUi(self):
         self.setObjectName("MainWindow")
@@ -107,23 +80,25 @@ class MainWindow(QMainWindow):
         self.deleteButton = QPushButton(self.centralwidget)
         self.deleteButton.setText("삭제")
         self.topHorizontal.addWidget(self.deleteButton)
+        self.deleteButton.clicked.connect(self.delete)
 
-        self.modifyButton = QPushButton(self.centralwidget)
-        self.modifyButton.setText("커밋")
-        self.topHorizontal.addWidget(self.modifyButton)
+        # self.modifyButton = QPushButton(self.centralwidget)
+        # self.modifyButton.setText("커밋")
+        # self.topHorizontal.addWidget(self.modifyButton)
 
         self.baseVertical.addLayout(self.topHorizontal)
         self.tableWidget = QTableWidget(self.centralwidget)
         self.tableWidget.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        self.tableWidget.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.baseVertical.addWidget(self.tableWidget)
 
         self.alloc1Button = QPushButton(self.centralwidget)
-        self.alloc1Button.setText("1에 할당")
+        self.alloc1Button.setText("색조합기 1에 할당")
         self.alloc1Button.clicked.connect(lambda: self.allocate(1))
         self.buttomHorizontal.addWidget(self.alloc1Button)
 
         self.alloc2Button = QPushButton(self.centralwidget)
-        self.alloc2Button.setText("2에 할당")
+        self.alloc2Button.setText("색조합기 2에 할당")
         self.alloc2Button.clicked.connect(lambda: self.allocate(2))
         self.buttomHorizontal.addWidget(self.alloc2Button)
 
@@ -131,9 +106,15 @@ class MainWindow(QMainWindow):
         self.tasklistButton.setText("작업 목록 보기")
         self.buttomHorizontal.addWidget(self.tasklistButton)
 
+        # self.status = QStatusBar(self.centralwidget)
+        # self.setStatusBar(self.status)
+        # self.status.showMessage("asdasf")
+
         self.baseVertical.addLayout(self.buttomHorizontal)
         self.verticalLayout_2.addLayout(self.baseVertical)
         self.setCentralWidget(self.centralwidget)
+
+        self.display_data()
 
         self.show()
 
@@ -163,11 +144,31 @@ class MainWindow(QMainWindow):
         data = self.tableWidget.selectedItems()
 
         if to == 1:
-            print("sending {} to 1".format(data[2]))
+            if data[4].text().startswith("inprogress"):
+                QMessageBox.critical(self, "오류: 서버 관리 도구",
+                                     f"작업 {data[0].text()}는 이미 색조합기 {data[4].text()[-1]}에 할당되었습니다.",
+                                     QMessageBox.Yes, QMessageBox.Yes)
+                return
+            print("sending {} to 1".format(data[3].text()))
+            cursor.update_status_by_id(ObjectId(data[0].text()), "inprogress1")
             # self.combinator_1.send(data[2].text().encode())
+
         elif to == 2:
-            print("sending {} to 2".format(data[2]))
+            if data[4].text().startswith("inprogress"):
+                QMessageBox.critical(self, "오류",
+                                     f"작업 {data[0].text()}는 이미 색조합기 {data[4].text()[-1]}에 할당되었습니다.", QMessageBox.Yes,
+                                     QMessageBox.Yes)
+                return
+            print("sending {} to 2".format(data[3].text()))
+            cursor.update_status_by_id(ObjectId(data[0].text()), "inprogress2")
             # self.combinator_2.send(data[2].text().encode())
+
+        QMessageBox.information(self, "성공",
+                    f"작업 {data[0].text()}가 색조합기 {to}에 잘 할당되었습니다.\n색조합이 곧 시작됩니다.",
+                    QMessageBox.Yes, QMessageBox.Yes)
+
+        self.display_data()
+        self.tableWidget.clearSelection()
 
     def delete(self):
         if self.tableWidget.currentRow() == -1:
@@ -176,7 +177,18 @@ class MainWindow(QMainWindow):
         self.tableWidget.selectRow(self.tableWidget.currentRow())
         data = self.tableWidget.selectedItems()
 
-        # TODO: DB에서 지우기 기능 구현
+        if data[4].text().startswith("inprogress"):
+            QMessageBox.critical(self, "오류",
+                                 f"작업 {data[0].text()}는 현재 조합중인 작업입니다.\n삭제할 수 없습니다.",
+                                 QMessageBox.Ok, QMessageBox.Ok)
+            return
+
+        cursor.delete_data_by_id(ObjectId(data[0].text()))
+        QMessageBox.information(self, "성공",
+                                f"작업 {data[0].text()}가 잘 지워졌습니다.",
+                                QMessageBox.Ok, QMessageBox.Ok)
+
+        self.display_data()
 
 
 app = QApplication(sys.argv)
