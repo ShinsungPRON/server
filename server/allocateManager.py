@@ -7,8 +7,9 @@
 # +-------------+--------------+-----------------------------------------------------------------+
 # |  Andrew A  |  2023/10/14   | Wrote allocate(), delete()                                      |
 # +-------------+--------------+-----------------------------------------------------------------+
+# |  Andrew A  |  2023/10/17   | Updated database scheme, task assignment done                   |
+# +-------------+--------------+-----------------------------------------------------------------+
 
-from bson.objectid import ObjectId
 from PyQt5.QtCore import QThread, pyqtSlot, pyqtSignal
 from PyQt5.QtWidgets import *
 import configparser
@@ -66,7 +67,6 @@ class SignalConnectionWorker(QThread):
         self.update_status_signal.emit(_id, status)
 
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -74,23 +74,27 @@ class MainWindow(QMainWindow):
         self.combinator_1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.combinator_2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        # self.establish_connection()
+        self.establish_connection()
         self.setupUi()
 
     def establish_connection(self):
         self.combinator_1.connect((conf['DEFAULT']['ColorCombinator1Addr'],
                                    int(conf['DEFAULT']['ColorCombinator1Port'])))
-        print(f"Connection established with 1: {conf['DEFAULT']['ColorCombinator1Addr']}, {int(conf['DEFAULT']['ColorCombinator1Port'])}")
+        print(
+            f"Connection established with 1: {conf['DEFAULT']['ColorCombinator1Addr']}, {int(conf['DEFAULT']['ColorCombinator1Port'])}")
 
-        self.combinator_2 = None
-
-        # self.combinator_2.connect((conf['DEFAULT']['ColorCombinator2Addr'],
-        #                            int(conf['DEFAULT']['ColorCombinator2Port'])))
-        # print(f"Connection established with 2: {conf['DEFAULT']['ColorCombinator2Addr']}, {int(conf['DEFAULT']['ColorCombinator2Port'])}")
+        self.combinator_2.connect((conf['DEFAULT']['ColorCombinator2Addr'],
+                                   int(conf['DEFAULT']['ColorCombinator2Port'])))
+        print(
+            f"Connection established with 2: {conf['DEFAULT']['ColorCombinator2Addr']}, {int(conf['DEFAULT']['ColorCombinator2Port'])}")
 
         self.worker1 = IndividualSignal(self.combinator_1)
         self.worker1.update.connect(self.update_status)
         self.worker1.start()
+
+        self.worker2 = IndividualSignal(self.combinator_2)
+        self.worker2.update.connect(self.update_status)
+        self.worker2.start()
 
     def setupUi(self):
         self.setObjectName("MainWindow")
@@ -149,14 +153,12 @@ class MainWindow(QMainWindow):
         self.verticalLayout_2.addLayout(self.baseVertical)
         self.setCentralWidget(self.centralwidget)
 
-        self.establish_connection()
-
         self.display_data()
 
         self.show()
 
     def display_data(self):
-        column_headers = ("데이터 ID", "크롬북 ID", "이름", "컬러코드", "상태")
+        column_headers = ("데이터 ID", "크롬북 ID", "이름", "컬러코드", "상태", "할당")
 
         count, data = cursor.fetch_all()
 
@@ -169,6 +171,7 @@ class MainWindow(QMainWindow):
             self.tableWidget.setItem(index, 2, QTableWidgetItem(datum["data"]["CustomerName"]))
             self.tableWidget.setItem(index, 3, QTableWidgetItem(str(datum["data"]["ColorCode"])))
             self.tableWidget.setItem(index, 4, QTableWidgetItem(datum["status"]))
+            self.tableWidget.setItem(index, 5, QTableWidgetItem(datum["assignedAt"]))
 
         self.tableWidget.setHorizontalHeaderLabels(column_headers)
         self.tableWidget.resizeColumnsToContents()
@@ -183,33 +186,42 @@ class MainWindow(QMainWindow):
         data_to_send = json.dumps(
             {
                 "_id": data[0].text(),
-                "code": data[2].text()
+                "code": data[3].text()
             }
         ).encode()
 
+        if data[4].text() == "done":
+            res = QMessageBox.question(self, "오류: 서버 관리 도구",
+                                       f"작업 {data[0].text()}는 이미 끝난 작업입니다.\n그래도 색조합기 {to}에 할당합니까?",
+                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+            if res == QMessageBox.No:
+                return
+
         if to == 1:
-            if data[4].text().startswith("inprogress"):
+            if data[4].text() == "inprogress":
                 QMessageBox.critical(self, "오류: 서버 관리 도구",
-                                     f"작업 {data[0].text()}는 이미 색조합기 {data[4].text()[-1]}에 할당되었습니다.",
+                                     f"작업 {data[0].text()}는 이미 색조합기 {data[5].text()}에 할당되었습니다.",
                                      QMessageBox.Yes, QMessageBox.Yes)
                 return
             print("sending {} to 1".format(data[3].text()))
-            cursor.update_status_by_id(ObjectId(data[0].text()), "inprogress1")
+            cursor.update_status_by_id(data[0].text(), "inprogress")
+            cursor.update_assigned_by_id(data[0].text(), 1)
             self.combinator_1.send(data_to_send)
 
         elif to == 2:
-            if data[4].text().startswith("inprogress"):
+            if data[4].text() == "inprogress":
                 QMessageBox.critical(self, "오류",
-                                     f"작업 {data[0].text()}는 이미 색조합기 {data[4].text()[-1]}에 할당되었습니다.", QMessageBox.Yes,
+                                     f"작업 {data[0].text()}는 이미 색조합기 {data[5].text()}에 할당되었습니다.", QMessageBox.Yes,
                                      QMessageBox.Yes)
                 return
             print("sending {} to 2".format(data[3].text()))
-            cursor.update_status_by_id(ObjectId(data[0].text()), "inprogress2")
-            # self.combinator_2.send(data_to_send)
+            cursor.update_status_by_id(data[0].text(), "inprogress")
+            cursor.update_assigned_by_id(data[0].text(), 2)
+            self.combinator_2.send(data_to_send)
 
         QMessageBox.information(self, "성공",
-                    f"작업 {data[0].text()}가 색조합기 {to}에 잘 할당되었습니다.\n색조합이 곧 시작됩니다.",
-                    QMessageBox.Yes, QMessageBox.Yes)
+                                f"작업 {data[0].text()}가 색조합기 {to}에 잘 할당되었습니다.\n색조합이 곧 시작됩니다.",
+                                QMessageBox.Yes, QMessageBox.Yes)
 
         self.display_data()
         self.tableWidget.clearSelection()
@@ -221,7 +233,7 @@ class MainWindow(QMainWindow):
         self.tableWidget.selectRow(self.tableWidget.currentRow())
         data = self.tableWidget.selectedItems()
 
-        if data[4].text().startswith("inprogress"):
+        if data[4].text() == "inprogress":
             QMessageBox.critical(self, "오류",
                                  f"작업 {data[0].text()}는 현재 조합중인 작업입니다.\n삭제할 수 없습니다.",
                                  QMessageBox.Ok, QMessageBox.Ok)
@@ -234,11 +246,10 @@ class MainWindow(QMainWindow):
 
         self.display_data()
 
-
     @pyqtSlot(str, str, int)
     def update_status(self, _id, status, device):
         print("_id", status)
-        cursor.update_status_by_id(ObjectId(_id), status)
+        cursor.update_status_by_id(_id, status)
         self.display_data()
 
         QMessageBox.information(self, "성공",
