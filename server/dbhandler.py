@@ -3,7 +3,7 @@ import pymongo
 from bson.objectid import ObjectId
 
 config = configparser.ConfigParser()
-config.read("./conf.conf")
+config.read("./serverconf.conf")
 
 
 class BaseDBError(Exception):

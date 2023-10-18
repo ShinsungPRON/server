@@ -239,7 +239,7 @@ class MainWindow(QMainWindow):
                                  QMessageBox.Ok, QMessageBox.Ok)
             return
 
-        cursor.delete_data_by_id(ObjectId(data[0].text()))
+        cursor.delete_data_by_id(data[0].text())
         QMessageBox.information(self, "성공",
                                 f"작업 {data[0].text()}가 잘 지워졌습니다.",
                                 QMessageBox.Ok, QMessageBox.Ok)

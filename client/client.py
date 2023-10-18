@@ -14,8 +14,6 @@ config.read("conf.conf")
 conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 conn.connect((config["DEFAULT"]["ServerAddr"], int(config["DEFAULT"]["ServerPort"])))
 
-print(conn.recv(1024).decode())
-
 with open('data.dat', 'r') as f:
     dat = f.read().split("\n")
 
