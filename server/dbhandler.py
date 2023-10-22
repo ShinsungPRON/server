@@ -1,9 +1,10 @@
 import configparser
 import pymongo
 from bson.objectid import ObjectId
+import os
 
 config = configparser.ConfigParser()
-config.read("./serverconf.conf")
+config.read(os.path.join(os.path.dirname(__file__), "serverconf.conf"))
 
 
 class BaseDBError(Exception):

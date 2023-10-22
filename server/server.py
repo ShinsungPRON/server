@@ -3,11 +3,18 @@ from pprint import pprint
 import socket
 import threading
 import json
+import os
 import dbhandler
 
 config = configparser.ConfigParser()
-config.read("./serverconf.conf")
+config.read(os.path.join(os.path.dirname(__file__), "serverconf.conf"))
 cursor = dbhandler.DBHandler()
+
+NC = '\033[0m'
+LB = '\033[1;34m'
+Y = '\033[1;33m'
+INFO = LB + "[+]" + NC
+INFO_YELLOW = Y + "[!]" + NC
 
 
 def connect(soc):
@@ -27,10 +34,10 @@ def connect(soc):
 
 soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 soc.bind(("localhost", int(config['DEFAULT']['ServerPort'])))
-print(f"[+] Server listening on (localhost, {int(config['DEFAULT']['ServerPort'])})")
+print(INFO, f"Server listening on (localhost, {int(config['DEFAULT']['ServerPort'])})")
 soc.listen(10)
 
 while True:
     sock, addr = soc.accept()
-    print("[!] connection established with", addr)
+    print(INFO_YELLOW, "connection established with", addr)
     threading.Thread(target=connect, args=(sock,)).start()

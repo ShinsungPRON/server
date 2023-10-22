@@ -17,10 +17,11 @@ import socket
 import dbhandler
 import json
 import sys
+import os
 
 cursor = dbhandler.DBHandler()
 conf = configparser.ConfigParser()
-conf.read("./allocatemgr.conf")
+conf.read(os.path.join(os.path.dirname(__file__), "allocatemgr.conf"))
 
 
 class IndividualSignal(QThread):
