@@ -2,6 +2,7 @@ import configparser
 import pymongo
 from bson.objectid import ObjectId
 import os
+from term_colors import *
 
 config = configparser.ConfigParser()
 config.read(os.path.join(os.path.dirname(__file__), "serverconf.conf"))
@@ -35,6 +36,9 @@ class DBHandler:
         self.client = pymongo.MongoClient(f"mongodb://{config['DB']['ServerAddr']}:{config['DB']['ServerPort']}")
         self.db = self.client[config['DB']['ID']]
         self.collection = self.db[config['DB']['collection']]
+        print(INFO, "DB connected")
+        for k in self.fetch_all()[1]:
+            print(k)
 
     def insert_data(self, data):
         # existing = self.get_data_by_id(data.get(id))
