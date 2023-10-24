@@ -1,15 +1,16 @@
 from term_colors import *
-import configparser
 from pprint import pprint
-import socket
+import configparser
+import dbhandler
 import threading
+import socket
 import json
 import os
-import dbhandler
 
 config = configparser.ConfigParser()
 config.read(os.path.join(os.path.dirname(__file__), "serverconf.conf"))
 cursor = dbhandler.DBHandler()
+
 
 def connect(soc):
     try:
@@ -33,5 +34,5 @@ soc.listen(10)
 
 while True:
     sock, addr = soc.accept()
-    print(INFO_YELLOW, "connection established with", addr)
+    print(NEW, "connection established with", addr)
     threading.Thread(target=connect, args=(sock,)).start()
